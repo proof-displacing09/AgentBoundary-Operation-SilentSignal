@@ -1,0 +1,12 @@
+[Unit]
+Description=AgentBoundary frontend (Vite dev server, localhost only)
+After=network.target agentboundary-backend.service
+
+[Service]
+WorkingDirectory=__ROOT__/frontend
+ExecStart=__NPM__ run dev -- --host 127.0.0.1 --port 5173
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

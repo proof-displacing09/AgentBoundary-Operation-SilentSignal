@@ -1,0 +1,111 @@
+AgentBoundary: Operation SilentSignal — Penetration Test FINAL RESULT
+====================================================================
+
+FINAL VERDICT: 4 CONFIRMED DEFECTS FOUND AND FIXED (all LOW).
+No critical, high, or medium in-scope defect was reproduced.
+
+WHAT WAS TESTED
+---------------
+A comprehensive adversarial assessment of the final QA-13-01 source
+(commit d376300), run on a dedicated branch from a separate worktree.
+Every API endpoint, all six tools, all ten frontend pages, session and
+tenant rules, approval replay and concurrency, prompt-injection attacks
+through a stub provider, filesystem locks, resets, backups, real-mode
+job limits, input fuzzing, and supply-chain hygiene were probed with
+disposable databases on loopback only. The demo database was preserved
+byte-for-byte (SHA-256 ad646b36...3a40 before and after), and nothing
+was published, deployed, pushed, or sent anywhere outside this machine.
+
+WHAT WAS GENUINELY FOUND (all fixed, each with a failing-first test)
+-------------------------------------------------------------------
+P-01 (LOW): The scenario detail endpoint was anonymously readable,
+exposing full attack fixtures and the evaluation answer key. It now
+requires a lab session. (The scenario list stays public, as previously
+decided; lab sessions are self-minted, so this is contract consistency
+and defense in depth, not a barrier against a determined local user.)
+
+P-02 (LOW): Duplicate JSON keys in a request body silently collapsed
+(last one won), so a launch could execute a different scenario than
+the first one shown. Duplicate keys are now rejected with a 400.
+
+P-03 (LOW): A real-mode run cancelled while the model was "thinking",
+where the reply carried no tool calls, was recorded as INCONCLUSIVE
+instead of CANCELLED, contradicting the cancel endpoint's own promise.
+The agent loop now rechecks cancel/budget after text-only replies too.
+(The same fix first broke 4 older cancel/budget tests by skipping
+batch-discard bookkeeping; it was rescoped and all of those tests pass.)
+
+P-04 (LOW, static-only): The CI workflow had no permissions block. It
+now declares read-only contents. CI itself has not run remotely.
+
+WHAT HELD UP (so you know it was actually attacked, not assumed)
+---------------------------------------------------------------
+- Cross-tenant reads (cases, runs, events, reports, alerts, drafts):
+  all denied with no data leaked; the Cedar sentinel never appeared
+  outside Cedar scope.
+- Approvals: exact-match binding, single use, and 8-way concurrent use
+  yielding exactly 1 success.
+- Locks: a second process, a symlink alias, and a hardlink alias on one
+  database were all refused with the database byte-identical.
+- Malicious stub-model output (unapproved close + cross-tenant read):
+  denied, 0 forbidden completions, flagship case unchanged.
+- 500 malformed dispatcher calls + 250 HTTP fuzz calls: zero crashes,
+  zero server errors.
+- Scripted A1-A6: all PASS, 0 forbidden, comparisons paired correctly,
+  weak CLI A2/A4 correctly FAIL on throwaway databases.
+
+WHAT REMAINS UNTESTED (stated plainly, not hidden)
+--------------------------------------------------
+- A completed live Ollama PASS trial: NOT RUN (Ollama is not installed
+  here). Scripted PASS is not live-model proof.
+- Python 3.13, Firefox/WebKit, screen-reader audit, npm audit (registry
+  policy), remote CI, Docker, PDF export, disk-full simulation: NOT RUN
+  for the environmental reasons detailed in the assessment.
+- This is not a claim of zero defects or 100% coverage (statement
+  coverage on the final tree is 91%). It is a claim that no known
+  reproducible in-scope defect remains open after this round.
+
+POST-DELIVERY ADDENDUM (read before the deliverable note below)
+--------------------------------------------------------------
+After the first hardened release, the delegated frontend/LLM review
+arrived with 2 more confirmed LOW defects and 2 informational items.
+Each was independently reproduced before fixing (none taken on trust):
+F1 — over-budget real-model proposals vanished from the audit trail
+(now recorded as discarded with reason budget_exhausted); F2 — the
+variant manifest hashed the wrong mission string for A5/A6 (now hashes
+the effective mission; A1-A4 digests provably unchanged, so stored weak
+exports still pair); F3 — non-200 provider responses were accepted
+(now exactly HTTP 200 is accepted); F4 — a stale frontend comment
+(corrected, no behavior change). All fixes carry failing-first tests
+except F4. The two other delegated reviews (API/auth, persistence) are
+still outstanding; if they surface a confirmed defect it will be
+handled the same way. Totals for the repackaged release: 6 LOW +
+2 informational, all fixed; still no critical, high, or medium defect.
+
+DELIVERABLE
+-----------
+A new complete hardened source ZIP built from the final clean commit
+(see RELEASE_MANIFEST.md for the exact commit, SHA-256, file count, and
+verification results) is provided alongside this file. The previous
+hardened ZIP was left untouched. Nothing in this release was published
+or deployed.
+
+SECOND ADDENDUM (persistence + API reviews)
+--------------------------------------------
+The two remaining delegated reviews added 1 MEDIUM and 10 more LOW /
+informational items, all reproduced before fixing: C1 — a database
+missing only `cases` was fully reseeded, wiping runs (MEDIUM, now
+repairs surgically); C2/C3 — backup pruning by mtime and unescaped
+glob (now stamp-sorted and escaped); C4 — lock failure on fresh
+nested paths (now creates the parent); C6 — symlink swap between
+lock and Store construction (now refused by a post-construction
+identity check); S1–S3 — backup counts, fsync, and source-vanish
+hardening; S5 — CLI reset now backs up like the API; S6 — gitignore
+temp pattern; A-C03 — session revoke endpoint plus best-effort
+revoke on persona switch; A-C04 — live DB file forced 0600;
+A-C05 — expired sessions purged on creation; A-C06 — matrix wording.
+One LOW (C5: rename after acquisition yields a second holder) has no
+safe narrow fix and is documented as a residual; the API review's
+403-vs-404 distinction is confirmed intentional. Totals across all
+rounds: 1 MEDIUM + 17 LOW fixed, 4 informational + 1 LOW/INFO fixed,
+1 LOW documented residual. Still no critical or high defect.

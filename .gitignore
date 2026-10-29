@@ -1,0 +1,45 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+backend/data/*.db
+# T10-02: reset backups and SQLite sidecars are generated lab state
+# that may contain runs and live session tokens — never commit them.
+# The *.pre-reset-*.bak pattern is narrow (only reset backups, anywhere
+# in the tree); the backend/data patterns cover that directory's
+# database sidecars. Genuine fixtures/docs are not matched by these.
+backend/data/*.bak
+*.pre-reset-*.bak
+# S6: the pattern above does not match crash-leftover backup TEMPS
+# (*.pre-reset-*.bak.tmp), and backend/data/*.tmp covers only that
+# directory -- a temp beside a repo-tree DB elsewhere was committable.
+*.bak.tmp
+backend/data/*.db-wal
+backend/data/*.db-shm
+backend/data/*.db-journal
+backend/data/*.tmp
+*.applock
+.env
+.DS_Store
+
+# Playwright screenshot evidence (local QA artifacts, not release content)
+frontend/e2e/screenshots/
+.coverage
+
+# Playwright run artifacts
+frontend/test-results/
+
+# Additional protection for local secrets and private backups
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.log
+*.zip
+
+# Windows download metadata copied into WSL2
+*:Zone.Identifier

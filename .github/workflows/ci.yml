@@ -1,0 +1,100 @@
+# AgentBoundary CI — backend + frontend + Playwright E2E.
+#
+# Scripted mode works fully offline; no provider keys are used anywhere.
+# Real-LLM tests are mocked-provider only and never touch a live model.
+# NOTE: this workflow itself runs on GitHub Actions, not locally. Every step
+# below has a locally executed equivalent (see README "Tests" / scripts/):
+#   backend job  -> scripts/setup-backend.sh + pytest + ruff + coverage
+#   frontend job -> scripts/setup-frontend.sh + tsc + vitest + build
+#   e2e job      -> npm run test:e2e (Playwright, stock Chromium)
+name: CI
+
+# P-04 (pentest, least privilege): these jobs only check out, install,
+# test and build — they never push, publish or release — so the token
+# gets read-only contents and nothing else. (Static hardening only:
+# CI has not run remotely; no remote exists.)
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned backend stack
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install -e . --no-deps
+      - name: Lint and format check
+        working-directory: backend
+        run: |
+          .venv/bin/python -m ruff check src tests
+          .venv/bin/python -m ruff format --check src tests
+      - name: Backend tests
+        working-directory: backend
+        run: .venv/bin/python -m pytest -q
+      - name: Full-source coverage report
+        working-directory: backend
+        run: |
+          .venv/bin/python -m coverage run -m pytest -q
+          .venv/bin/python -m coverage report
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend (clean, from lockfile)
+        working-directory: frontend
+        run: npm ci
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Component tests
+        working-directory: frontend
+        run: npm test
+      - name: Production build
+        working-directory: frontend
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install backend (Playwright webServer starts it)
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install -e . --no-deps
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Playwright E2E (servers auto-started by webServer config)
+        working-directory: frontend
+        run: npm run test:e2e

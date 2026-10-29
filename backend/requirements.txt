@@ -1,0 +1,19 @@
+# Pinned production/test stack, read from the verified venv (2026-10-24).
+# Install with: pip install -r requirements.txt
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.1
+starlette==1.9.0
+pydantic-core==2.50.1
+annotated-types==0.8.0
+anyio==4.15.1
+h11==0.16.0
+idna==3.20
+click==8.5.0
+pytest==9.1.1
+httpx==0.28.1
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
+coverage==7.17.0
+ruff==0.17.2
